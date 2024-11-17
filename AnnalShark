@@ -1,0 +1,80 @@
+#! /bin/python3
+from art import *
+import pyshark
+import os
+import ipaddress
+from termcolor import colored
+
+def check_strange_com(file):
+    cap = pyshark.FileCapture(file)
+    print("entrer l'address du réseau souhaiter : ")
+    addr_reseau = input()
+    addr_reseau = ipaddress.ip_network(addr_reseau)
+    print(f"{addr_reseau}")
+    known_ports = []
+    port = int(input("entrer les numéros de port que vous souhaiter ignoré\nentrée '0' pour finir : ")) 
+    while port != 0:
+        known_ports.append(port)
+        port = int(input("Nouveau port à ignorer : "))
+    
+    print(known_ports)
+    for packet in cap:
+        try:
+            if 'IP' in packet:
+                src_ip = ipaddress.ip_address(packet.ip.src)
+                dst_ip = ipaddress.ip_address(packet.ip.dst)
+
+            if src_ip in addr_reseau and dst_ip not in addr_reseau:
+    
+                if 'TCP' in packet and int(packet.tcp.dstport) not in known_ports:
+                    print(f"Paquet TCP détecté : {src_ip}:{packet.tcp.srcport} -> {dst_ip}:{packet.tcp.dstport}")
+                elif 'UDP' in packet and int(packet.udp.dstport) not in known_ports:
+                    print(f"Paquet UDP détecté : {src_ip}:{packet.udp.srcport} -> {dst_ip}:{packet.udp.dstport}")
+
+        except AttributeError:
+            continue
+
+def check_addr(file):
+    cap = pyshark.FileCapture(file)
+    addr_sus = input("entrer l'addresse suspecte : ")
+    port_ignore = []
+    port = int(input("Entrer les port que vous souhaiter ignorer.\nrentrer 0 pour stopper : "))
+    while port != 0:
+        port_ignore.append(port)
+        port = int(input("Nouveau port à ignorer : "))
+    print(port_ignore)
+
+    for packet in cap:
+        try:
+            if 'IP' in packet:
+                src_ip = ipaddress.ip_address(packet.ip.src)
+            if src_ip == addr_sus:
+                if 'TCP' in packet and int(packet.tcp.dstport) not in port_ignore:
+                    print(f"Paquet venant de {addr_sus} détecter! {packet.tcp.srcport} --> {packet.ip.dst}:{packet.tcp.dstport}")
+                elif 'UDP' in packet and int(packet.tcp.dstport) not in port_ignore:
+                    print(f"Paquet venant de {addr_sus} détecter! {packet.udp.srcport} --> {packet.ip.dst}:{packet.udp.dstport}")
+
+        except AttributeError:
+            continue
+
+def main():
+
+    print(colored(text2art ("AnnalShark"),'cyan'))
+    print(colored('Created by Herbert De La Combe Aux Loups\n\n'.center(64),'red'))
+
+    print ('veuillez rentrer le chemin du fichier pcap a annalyser : ')
+    file = input()
+    if os.path.exists(file):
+        choix = int (input("veulliez choisir quelle annalyse vous souhaiter\n1: annalyse de communication suspecte vers un réseau externe depuis le reseau interne\n2: annalyse des packets liés à une addresse précise\nvotre choix : "))
+    else:
+        print (f"le fichier {file} n'existe pas")
+        exit(1)
+
+    match choix:
+        case 1:
+            check_strange_com(file)
+        case 2:
+            check_addr(file)
+    
+if __name__=="__main__":
+    main()
